@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SPM - User</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <div class="navbar">
+      <span class="brand">Sistem Pengaduan Masyarakat</span>
+      <div class="nav-info">
+        <a href="#" onclick="logout()">Keluar</a>
+      </div>
+    </div>
+
+    <div class="container">
+      <div class="tabs">
+        <button class="tab-btn active" onclick="showTab('tab-form', this)">
+          Buat Laporan
+        </button>
+        <button class="tab-btn" onclick="showTab('tab-list', this)">
+          Laporan Saya
+        </button>
+        <button
+          class="tab-btn"
+          onclick="showTab('tab-detail', this)"
+          id="btnDetail"
+          style="display: none"
+        >
+          Detail
+        </button>
+      </div>
+
+      <div id="tab-form">
+        <div class="card">
+          <div class="card-title">Form Pengaduan</div>
+          <div id="alertForm" class="alert alert-success"></div>
+
+          <div class="row2">
+            <div class="form-group">
+              <label>Nama Lengkap</label>
+              <input
+                type="text"
+                id="namaPelapor"
+                placeholder="Nama Lengkap Anda"
+              />
+              <div class="err-msg" id="errNama">Wajib diisi</div>
+            </div>
+            <div class="form-group">
+              <label>Nomor Telepon</label>
+              <input
+                type="tel"
+                id="telepon"
+                placeholder="Nomor WhatsApp Anda"
+              />
+              <div class="err-msg" id="errTelepon">Wajib diisi</div>
+            </div>
+          </div>
+
+          <div class="row2">
+            <div class="form-group">
+              <label>Kategori</label>
+              <select id="kategori">
+                <option value="">-- Pilih --</option>
+                <option>Infrastruktur</option>
+                <option>Kebersihan</option>
+                <option>Keamanan</option>
+                <option>Pelayanan Publik</option>
+                <option>Lainnya</option>
+              </select>
+              <div class="err-msg" id="errKategori">Wajib dipilih</div>
+            </div>
+            <div class="form-group">
+              <label>Lokasi</label>
+              <input
+                type="text"
+                id="lokasi"
+                placeholder="Jl / RT / RW / Kelurahan / Kecamatan"
+              />
+              <div class="err-msg" id="errLokasi">Wajib diisi</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Judul Laporan</label>
+            <input type="text" id="judul" maxlength="100" />
+            <div class="err-msg" id="errJudul">Wajib diisi</div>
+          </div>
+          <div class="form-group">
+            <label>Deskripsi</label>
+            <textarea
+              id="deskripsi"
+              rows="4"
+              placeholder="Minimal 20 Karakter"
+            ></textarea>
+            <div class="err-msg" id="errDeskripsi">Minimal 20 karakter</div>
+          </div>
+
+          <button class="btn btn-primary" onclick="kirimLaporan()">
+            Kirim Laporan
+          </button>
+        </div>
+      </div>
+
+      <div id="tab-list" style="display: none">
+        <div class="card">
+          <div class="card-title">Laporan Saya</div>
+          <div id="listLaporan"></div>
+        </div>
+      </div>
+
+      <div id="tab-detail" style="display: none">
+        <div style="margin-bottom: 10px">
+          <button
+            class="btn btn-outline btn-sm"
+            onclick="
+              document.getElementById('btnDetail').style.display = 'none';
+              showTab('tab-list', document.querySelectorAll('.tab-btn')[1]);
+            "
+          >
+            Kembali
+          </button>
+        </div>
+        <div class="card">
+          <div id="detailIsi"></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script>
+      const user = requireLogin("user");
+
+      function logout() {
+        clearSession();
+        location.href = "login.html";
+      }
+
+      function showTab(id, btn) {
+        ["tab-form", "tab-list", "tab-detail"].forEach(
+          (t) => (document.getElementById(t).style.display = "none"),
+        );
+        document
+          .querySelectorAll(".tab-btn")
+          .forEach((b) => b.classList.remove("active"));
+        document.getElementById(id).style.display = "";
+        if (btn) btn.classList.add("active");
+        if (id === "tab-list") renderList();
+      }
+
+      function kirimLaporan() {
+        const fields = [
+          { id: "namaPelapor", errId: "errNama" },
+          { id: "telepon", errId: "errTelepon" },
+          { id: "kategori", errId: "errKategori" },
+          { id: "lokasi", errId: "errLokasi" },
+          { id: "judul", errId: "errJudul" },
+        ];
+        let ok = true;
+        fields.forEach((f) => {
+          document.getElementById(f.id).classList.remove("error");
+          document.getElementById(f.errId).classList.remove("show");
+        });
+        document.getElementById("deskripsi").classList.remove("error");
+        document.getElementById("errDeskripsi").classList.remove("show");
+
+        fields.forEach((f) => {
+          if (!document.getElementById(f.id).value.trim()) {
+            document.getElementById(f.id).classList.add("error");
+            document.getElementById(f.errId).classList.add("show");
+            ok = false;
+          }
+        });
+        const desk = document.getElementById("deskripsi").value.trim();
+        if (desk.length < 20) {
+          document.getElementById("deskripsi").classList.add("error");
+          document.getElementById("errDeskripsi").classList.add("show");
+          ok = false;
+        }
+        if (!ok) return;
+
+        const lap = buatLaporan(user, {
+          namaPelapor: document.getElementById("namaPelapor").value.trim(),
+          telepon: document.getElementById("telepon").value.trim(),
+          kategori: document.getElementById("kategori").value,
+          lokasi: document.getElementById("lokasi").value.trim(),
+          judul: document.getElementById("judul").value.trim(),
+          deskripsi: desk,
+        });
+
+        const al = document.getElementById("alertForm");
+        al.textContent = "Laporan berhasil dikirim! Nomor: " + lap.id;
+        al.className = "alert alert-success show";
+        document.getElementById("kategori").value = "";
+        ["namaPelapor", "telepon", "lokasi", "judul", "deskripsi"].forEach(
+          (id) => (document.getElementById(id).value = ""),
+        );
+        setTimeout(() => al.classList.remove("show"), 6000);
+      }
+
+      function renderList() {
+        const semua = getLaporan().filter((l) => l.userId === user.id);
+        const el = document.getElementById("listLaporan");
+        if (!semua.length) {
+          el.innerHTML =
+            '<div class="empty">Belum ada laporan. Buat laporan pertama Anda.</div>';
+          return;
+        }
+        el.innerHTML = `<table>
+    <tr><th>ID</th><th>Judul Laporan</th><th>Kategori</th><th>Tanggal Masuk</th><th>Status</th><th></th></tr>
+    ${semua
+      .map(
+        (l) => `<tr>
+      <td style="font-size:.78rem;color:var(--muted)">${l.id}</td>
+      <td>${l.judul}</td>
+      <td>${l.kategori}</td>
+      <td style="font-size:.78rem;color:var(--muted)">${l.tanggal}</td>
+      <td>${badgeStatus(l.status)}</td>
+      <td><button class="btn btn-outline btn-sm" onclick="lihatDetail('${l.id}')">Detail</button></td>
+    </tr>`,
+      )
+      .join("")}
+  </table>`;
+      }
+
+      function lihatDetail(id) {
+        const l = getLaporan().find((x) => x.id === id);
+        if (!l) return;
+        document.getElementById("detailIsi").innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <strong>${l.judul}</strong>
+      ${badgeStatus(l.status)}
+    </div>
+    <div class="detail-row"><span class="dl">ID</span><span>${l.id}</span></div>
+    <div class="detail-row"><span class="dl">Nama Pelapor</span><span>${l.namaPelapor}</span></div>
+    <div class="detail-row"><span class="dl">Nomor Telepon</span><span>${l.telepon}</span></div>
+    <div class="detail-row"><span class="dl">Kategori</span><span>${l.kategori}</span></div>
+    <div class="detail-row"><span class="dl">Lokasi</span><span>${l.lokasi}</span></div>
+    <div class="detail-row"><span class="dl">Tanggal Masuk</span><span>${l.tanggal}</span></div>
+    <div class="detail-row"><span class="dl">Judul Laporan</span><span>${l.judul}</span></div>
+    <div class="detail-row"><span class="dl">Deskripsi</span><span>${l.deskripsi}</span></div>
+    ${l.respon ? `<div class="detail-row"><span class="dl">Respon admin</span><span>${l.respon}</span></div>` : ""}
+    <hr style="margin:14px 0;border:none;border-top:1px solid var(--border)">
+    <div style="font-weight:600;font-size:.82rem;margin-bottom:8px">Riwayat Status</div>
+    <ul class="timeline">
+      ${l.log
+        .map(
+          (lg) => `<li>
+        <div>${lg.status}</div>
+        ${lg.catatan ? `<div class="tl-note">${lg.catatan}</div>` : ""}
+        <div class="tl-time">${lg.waktu}</div>
+      </li>`,
+        )
+        .join("")}
+    </ul>`;
+
+        document.getElementById("btnDetail").style.display = "";
+        showTab("tab-detail", document.getElementById("btnDetail"));
+      }
+    </script>
+  </body>
+</html>

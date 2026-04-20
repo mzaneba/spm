@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SPM - Admin</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <div class="navbar">
+      <span class="brand">Sistem Pengaduan Masyarakat - Admin</span>
+      <div class="nav-info">
+        <span id="namaAdmin"></span>
+        <a href="#" onclick="logout()">Keluar</a>
+      </div>
+    </div>
+
+    <div class="container">
+      <div class="tabs">
+        <button class="tab-btn active" onclick="showTab('tab-semua', this)">
+          Semua Laporan
+        </button>
+        <button
+          class="tab-btn"
+          onclick="showTab('tab-kelola', this)"
+          id="btnKelola"
+          style="display: none"
+        >
+          Kelola Laporan
+        </button>
+      </div>
+
+      <div id="tab-semua">
+        <div class="card">
+          <div class="card-title">Daftar Laporan Masuk</div>
+          <div class="filter-bar">
+            <select id="filterStatus" onchange="renderSemua()">
+              <option value="">Semua Status</option>
+              <option>Diterima</option>
+              <option>Diproses</option>
+              <option>Ditindaklanjuti</option>
+              <option>Selesai</option>
+              <option>Ditolak</option>
+            </select>
+            <input
+              type="text"
+              id="filterCari"
+              placeholder="Cari judul / pelapor..."
+              oninput="renderSemua()"
+              style="flex: 1; min-width: 160px"
+            />
+          </div>
+          <div id="listSemua"></div>
+        </div>
+      </div>
+
+      <div id="tab-kelola" style="display: none">
+        <div style="margin-bottom: 10px">
+          <button
+            class="btn btn-outline btn-sm"
+            onclick="
+              document.getElementById('btnKelola').style.display = 'none';
+              document.getElementById('statusBaru').value = 'Diterima';
+              document.getElementById('catatanAdmin').value = '';
+              showTab('tab-semua', document.querySelectorAll('.tab-btn')[0]);
+              renderSemua();
+            "
+          >
+            Kembali
+          </button>
+        </div>
+        <div class="card">
+          <div id="kelolaDetail"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Update Status</div>
+          <div id="alertKelola" class="alert alert-success"></div>
+          <div class="form-group">
+            <label>Status Baru</label>
+            <select id="statusBaru">
+              <option>Diterima</option>
+              <option>Diproses</option>
+              <option>Ditindaklanjuti</option>
+              <option>Selesai</option>
+              <option>Ditolak</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Catatan / Respon</label>
+            <textarea
+              id="catatanAdmin"
+              rows="3"
+              placeholder="Tuliskan respon atau tindakan yang diambil..."
+            ></textarea>
+          </div>
+          <button class="btn btn-primary" onclick="simpanUpdate()">
+            Simpan Update
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script>
+      const admin = requireLogin("admin");
+      if (admin) document.getElementById("namaAdmin").textContent = admin.nama;
+
+      let selectedId = null;
+
+      function logout() {
+        clearSession();
+        location.href = "login.html";
+      }
+
+      function showTab(id, btn) {
+        ["tab-semua", "tab-kelola"].forEach(
+          (t) => (document.getElementById(t).style.display = "none"),
+        );
+        document
+          .querySelectorAll(".tab-btn")
+          .forEach((b) => b.classList.remove("active"));
+        document.getElementById(id).style.display = "";
+        if (btn) btn.classList.add("active");
+      }
+
+      function renderSemua() {
+        let data = getLaporan();
+        const fs = document.getElementById("filterStatus").value;
+        const fc = document.getElementById("filterCari").value.toLowerCase();
+        if (fs) data = data.filter((l) => l.status === fs);
+        if (fc)
+          data = data.filter(
+            (l) =>
+              l.judul.toLowerCase().includes(fc) ||
+              l.namaPelapor.toLowerCase().includes(fc),
+          );
+
+        const el = document.getElementById("listSemua");
+        if (!data.length) {
+          el.innerHTML =
+            '<div class="empty">Tidak ada laporan ditemukan.</div>';
+          return;
+        }
+        el.innerHTML = `<table>
+    <tr><th>ID</th><th>Nama Pelapor</th><th>Judul Laporan</th><th>Kategori</th><th>Tanggal Masuk</th><th>Status</th><th></th></tr>
+    ${data
+      .map(
+        (l) => `<tr>
+      <td style="font-size:.78rem;color:var(--muted)">${l.id}</td>
+      <td>${l.namaPelapor}</td>
+      <td>${l.judul}</td>
+      <td>${l.kategori}</td>
+      <td style="font-size:.78rem;color:var(--muted)">${l.tanggal}</td>
+      <td>${badgeStatus(l.status)}</td>
+      <td><button class="btn btn-outline btn-sm" onclick="bukaKelola('${l.id}')">Kelola</button></td>
+    </tr>`,
+      )
+      .join("")}
+  </table>`;
+      }
+
+      function bukaKelola(id) {
+        const l = getLaporan().find((x) => x.id === id);
+        if (!l) return;
+        selectedId = id;
+
+        document.getElementById("kelolaDetail").innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <strong>${l.judul}</strong>
+      ${badgeStatus(l.status)}
+    </div>
+    <div class="detail-row"><span class="dl">ID</span><span>${l.id}</span></div>
+    <div class="detail-row"><span class="dl">Nama Pelapor</span><span>${l.namaPelapor} </span></div>
+    <div class="detail-row"><span class="dl">Nomor Telepon</span><span>${l.telepon || "-"}</span></div>
+    <div class="detail-row"><span class="dl">Kategori</span><span>${l.kategori}</span></div>
+    <div class="detail-row"><span class="dl">Lokasi</span><span>${l.lokasi}</span></div>
+    <div class="detail-row"><span class="dl">Judul Laporan</span><span>${l.judul}</span></div>
+    <div class="detail-row"><span class="dl">Deskripsi</span><span>${l.deskripsi}</span></div>
+    <hr style="margin:12px 0;border:none;border-top:1px solid var(--border)">
+    <div style="font-weight:600;font-size:.82rem;margin-bottom:6px">Riwayat Status</div>
+    <ul class="timeline">
+      ${l.log
+        .map(
+          (lg, idx) => `<li id="log-item-${idx}">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span>${lg.status}</span>
+          <span style="display:flex;gap:4px">
+            <button class="btn btn-outline btn-sm" onclick="bukaEditLog('${l.id}', ${idx})">Edit</button>
+            ${idx > 0 ? `<button class="btn btn-outline btn-sm" style="color:var(--danger,#c0392b)" onclick="hapusLogItem('${l.id}', ${idx})">Hapus</button>` : ""}
+          </span>
+        </div>
+        ${lg.catatan ? `<div class="tl-note">${lg.catatan}</div>` : ""}
+        <div class="tl-time">${lg.waktu}</div>
+        <div id="edit-log-${idx}" style="display:none;margin-top:8px;padding:10px;background:var(--bg,#f5f5f5);border-radius:6px">
+          <div class="form-group" style="margin-bottom:8px">
+            <label style="font-size:.78rem">Status</label>
+            <select id="edit-status-${idx}">
+              <option>Diterima</option>
+              <option>Diproses</option>
+              <option>Ditindaklanjuti</option>
+              <option>Selesai</option>
+              <option>Ditolak</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:8px">
+            <label style="font-size:.78rem">Catatan</label>
+            <textarea id="edit-catatan-${idx}" rows="2">${lg.catatan || ""}</textarea>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-primary btn-sm" onclick="simpanEditLog('${l.id}', ${idx})">Simpan</button>
+            <button class="btn btn-outline btn-sm" onclick="document.getElementById('edit-log-${idx}').style.display='none'">Batal</button>
+          </div>
+        </div>
+      </li>`,
+        )
+        .join("")}
+    </ul>`;
+
+        document.getElementById("statusBaru").value = "Diterima";
+        document.getElementById("catatanAdmin").value = "";
+        document.getElementById("alertKelola").classList.remove("show");
+
+        document.getElementById("btnKelola").style.display = "";
+        showTab("tab-kelola", document.getElementById("btnKelola"));
+      }
+
+      function bukaEditLog(laporanId, idx) {
+        document
+          .querySelectorAll('[id^="edit-log-"]')
+          .forEach((el) => (el.style.display = "none"));
+        const form = document.getElementById("edit-log-" + idx);
+        const l = getLaporan().find((x) => x.id === laporanId);
+        if (!form || !l) return;
+        document.getElementById("edit-status-" + idx).value = l.log[idx].status;
+        form.style.display = "";
+      }
+
+      function simpanEditLog(laporanId, idx) {
+        const status = document.getElementById("edit-status-" + idx).value;
+        const catatan = document
+          .getElementById("edit-catatan-" + idx)
+          .value.trim();
+        editLog(laporanId, idx, status, catatan);
+        bukaKelola(laporanId);
+      }
+
+      function hapusLogItem(laporanId, idx) {
+        if (!confirm("Yakin ingin menghapus entri riwayat ini?")) return;
+        hapusLog(laporanId, idx);
+        bukaKelola(laporanId);
+      }
+
+      function simpanUpdate() {
+        if (!selectedId) return;
+        const status = document.getElementById("statusBaru").value;
+        const catatan = document.getElementById("catatanAdmin").value.trim();
+        updateStatus(selectedId, status, catatan);
+
+        const al = document.getElementById("alertKelola");
+        al.textContent = "Status berhasil diperbarui.";
+        al.className = "alert alert-success show";
+        bukaKelola(selectedId);
+        setTimeout(() => al.classList.remove("show"), 4000);
+      }
+
+      renderSemua();
+    </script>
+  </body>
+</html>
