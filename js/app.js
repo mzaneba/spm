@@ -56,11 +56,11 @@ function clearSession() {
 function requireLogin(role) {
   const s = getSession();
   if (!s) {
-    location.href = "login.html";
+    location.href = "index.html";
     return null;
   }
   if (role && s.role !== role) {
-    location.href = "login.html";
+    location.href = "index.html";
     return null;
   }
   return s;
